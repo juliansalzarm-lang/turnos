@@ -12,6 +12,24 @@ st.set_page_config(
     layout="wide"
 )
 
+# Inyectar estilos CSS personalizados para hacer las casillas (checkboxes) más grandes y táctiles
+st.markdown("""
+    <style>
+        /* Aumentar tamaño de los checkboxes y facilitar la selección en pantallas táctiles */
+        input[type="checkbox"] {
+            transform: scale(1.5);
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        /* Ajustar el espaciado de los elementos del widget de selección */
+        div.stCheckbox > label {
+            font-size: 15px !important;
+            font-weight: 500;
+            padding: 4px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # Archivos de persistencia de datos
 DB_SOLICITUDES = "solicitudes_dias_libres.csv"
 DB_CONFIG = "config_admin.json"
