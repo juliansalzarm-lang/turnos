@@ -12,18 +12,57 @@ st.set_page_config(
     layout="wide"
 )
 
-# Inyectar estilos CSS personalizados para hacer las casillas de selección aún más grandes y táctiles
+# Inyectar estilos CSS institucionales utilizando tonalidades de #209699 y transparencias
 st.markdown("""
     <style>
+        /* Tonalidades de #209699 para elementos clave */
+        :root {
+            --primary-color: #209699;
+            --primary-light: rgba(32, 150, 153, 0.12);
+            --primary-hover: #197a7d;
+        }
+
+        /* Títulos principales */
+        h1, h2, h3 {
+            color: #209699 !important;
+        }
+
+        /* Botones primarios */
+        .stButton > button[kind="primary"], div.stButton > button {
+            background-color: #209699 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 6px !important;
+            font-weight: 600;
+        }
+        .stButton > button[kind="primary"]:hover, div.stButton > button:hover {
+            background-color: #197a7d !important;
+        }
+
+        /* Checkboxes más grandes y táctiles */
         input[type="checkbox"] {
             transform: scale(1.8);
             margin-right: 12px;
             cursor: pointer;
+            accent-color: #209699;
         }
         div.stCheckbox > label {
             font-size: 16px !important;
             font-weight: 500;
             padding: 6px;
+        }
+
+        /* Cajas de información y alertas con transparencia institucional */
+        .stAlert {
+            background-color: rgba(32, 150, 153, 0.08) !important;
+            border-left: 5px solid #209699 !important;
+        }
+
+        /* Pestañas (Tabs) */
+        .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+            font-size: 16px;
+            font-weight: 600;
+            color: #209699;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -234,10 +273,10 @@ with tab1:
         cols_header = st.columns(7)
         for idx, nombre_d in enumerate(dias_semana_nombres):
             with cols_header[idx]:
-                if idx == 0:  # Domingo en rojo
-                    st.markdown(f"<p style='text-align: center; color: #ff4b4b; font-weight: bold;'>{nombre_d}</p>", unsafe_allow_html=True)
+                if idx == 0:  # Domingo en tono institucional destacado
+                    st.markdown(f"<p style='text-align: center; color: #209699; font-weight: bold;'>{nombre_d}</p>", unsafe_allow_html=True)
                 else:
-                    st.markdown(f"<p style='text-align: center; font-weight: bold;'>{nombre_d}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='text-align: center; color: #333333; font-weight: bold;'>{nombre_d}</p>", unsafe_allow_html=True)
                     
         # Inicializar o recuperar estado de selección en session_state para la cuadrícula
         state_key = f"sel_{anestesiologo_seleccionado}_{mes_input}"
@@ -257,7 +296,6 @@ with tab1:
                         es_domingo_o_sabado = (idx == 0 or idx == 6)
                         es_festivo = f_actual in festivos_col
                         
-                        # Sin la palabra 'Día' ni corchetes, mostrando solo número y clasificación limpia
                         if es_festivo:
                             etiqueta_dia = f"{num_dia} ☀️ Festivo"
                         elif es_domingo_o_sabado:
