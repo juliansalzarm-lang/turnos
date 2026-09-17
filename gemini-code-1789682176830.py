@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date, timedelta
+import calendar
 import os
 import json
 
@@ -15,7 +16,7 @@ st.set_page_config(
 DB_SOLICITUDES = "solicitudes_dias_libres.csv"
 DB_CONFIG = "config_admin.json"
 
-# Listado oficial de anestesiólogos y asignación de clave secreta de 1 dígito
+# Listado oficial de anestesiólogos y su clave secreta de 1 dígito
 ANESTESIOLOGOS_DB = {
     "ALADINO PATIÑO VALERIA": "1",
     "BEDOYA MOSQUERA JADDY (I)": "2",
@@ -48,7 +49,7 @@ if not os.path.exists(DB_CONFIG):
     with open(DB_CONFIG, "w") as f:
         json.dump(config_init, f)
 
-# Funciones de backend
+# Funciones de backend y lógica de festivos en Colombia
 def cargar_config():
     with open(DB_CONFIG, "r") as f:
         return json.load(f)
@@ -62,14 +63,12 @@ def verificar_estado_cierre():
     config = cargar_config()
     if config["cierre_manual"]:
         return True, "El administrador ha cerrado manualmente la recepción de solicitudes."
-    
     try:
         limite = datetime.strptime(config["fecha_limite"], "%Y-%m-%d %H:%M")
         if datetime.now() > limite:
             return True, f"El plazo de solicitud expiró el {config['fecha_limite']}."
-    except Exception as e:
+    except Exception:
         pass
-    
     return False, "Plazo abierto."
 
 def obtener_dias_usuario(anestesiologo, mes):
@@ -79,21 +78,70 @@ def obtener_dias_usuario(anestesiologo, mes):
     filtrado = df[(df["Anestesiologo"] == anestesiologo) & (df["Mes"] == mes)]
     return [int(d) for d in filtrado["Dia_Libre"].tolist() if str(d).isdigit()]
 
-def guardar_solicitudes(anestesiologo, mes, dias_seleccionados, clave_ingresada):
-    if not anestesiologo:
-        return False, "Por favor, seleccione su nombre de la lista."
+def obtener_pascua(anio):
+    # Algoritmo de Meeus/Jones/Butcher para calcular el Domingo de Pascua
+    a = anio % 19
+    b = anio // 100
+    c = anio % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    mes = (h + l - 7 * m + 114) // 31
+    dia = ((h + l - 7 * m + 114) % 31) + 1
+    return date(anio, mes, dia)
+
+def siguiente_lunes(fec):
+    d_sem = fec.weekday()
+    if d_sem == 0: # Ya es lunes
+        return fec
+    return fec + timedelta(days=(7 - d_sem))
+
+def obtener_festivos_colombia(anio):
+    # Fijas
+    festivos = {
+        date(anio, 1, 1),   # Año Nuevo
+        date(anio, 5, 1),   # Día del Trabajo
+        date(anio, 7, 20),  # Independencia
+        date(anio, 8, 7),   # Batalla de Boyacá
+        date(anio, 12, 8),  # Inmaculada Concepción
+        date(anio, 12, 25)  # Navidad
+    }
     
-    # Validar clave de 1 dígito
-    if ANESTESIOLOGOS_DB.get(anestesiologo) != clave_ingresada:
-        return False, "Clave de acceso incorrecta para este especialista."
+    # Ley Emiliani (Se mueven al lunes siguiente)
+    moviles = [
+        date(anio, 1, 6),   # Reyes Magos
+        date(anio, 3, 19),  # San José
+        date(anio, 6, 29),  # San Pedro y San Pablo
+        date(anio, 8, 15),  # Asunción de la Virgen
+        date(anio, 10, 12), # Día de la Raza
+        date(anio, 11, 1),  # Todos los Santos
+        date(anio, 11, 11)  # Independencia de Cartagena
+    ]
+    for m in moviles:
+        festivos.add(siguiente_lunes(m))
+        
+    # Basados en Pascua
+    pascua = obtener_pascua(anio)
+    festivos.add(pascua + timedelta(days=-3)) # Jueves Santo
+    festivos.add(pascua + timedelta(days=-2)) # Viernes Santo
+    festivos.add(siguiente_lunes(pascua + timedelta(days=43))) # Ascensión del Señor
+    festivos.add(siguiente_lunes(pascua + timedelta(days=64))) # Corpus Christi
+    festivos.add(siguiente_lunes(pascua + timedelta(days=71))) # Sagrado Corazón
     
+    return festivos
+
+def guardar_solicitudes(anestesiologo, mes, dias_seleccionados):
     cerrado, mensaje_cierre = verificar_estado_cierre()
     if cerrado:
         return False, f"Acción denegada: {mensaje_cierre}"
     
     df = pd.read_csv(DB_SOLICITUDES)
-    
-    # Eliminar registros previos para permitir edición limpia
     df = df[~((df["Anestesiologo"] == anestesiologo) & (df["Mes"] == mes))]
     
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -112,20 +160,20 @@ def guardar_solicitudes(anestesiologo, mes, dias_seleccionados, clave_ingresada)
         df = pd.concat([df, df_nuevos], ignore_index=True)
         
     df.to_csv(DB_SOLICITUDES, index=False)
-    return True, f"¡Solicitudes actualizadas con éxito para {mes}!"
+    return True, f"¡Solicitudes guardadas y actualizadas con éxito para {mes}!"
 
 # --- INTERFAZ DE USUARIO ---
 st.title("🏥 Sistema de Gestión de Días Libres - Anestesiología")
-st.markdown("Selección confidencial de días libres por especialista.")
+st.markdown("Plataforma de selección confidencial de días libres con validación de seguridad individual.")
 
 tab1, tab2 = st.tabs(["👤 Portal Anestesiólogos", "🔒 Portal Administrador"])
 
 # --- PESTAÑA 1: ANESTESIÓLOGOS ---
 with tab1:
-    st.header("Selección de Días Libres por Especialista")
-    st.info("Seleccione su nombre de la lista desplegable, introduzca su clave asignada de un dígito y marque los días que desea libres en el calendario del mes.")
+    st.header("Acceso y Selección de Días Libres")
+    st.info("Para proteger tu privacidad, el calendario y tus solicitudes anteriores solo se desbloquearán al introducir correctamente tu nombre y tu clave personal de un dígito.")
     
-    col1, col2 = st.Item = st.columns(2)
+    col1, col2 = st.columns(2)
     with col1:
         anestesiologo_seleccionado = st.selectbox(
             "Seleccione su Nombre",
@@ -134,53 +182,95 @@ with tab1:
     with col2:
         clave_input = st.text_input("Clave personal (1 dígito)", type="password", max_chars=1)
         
-    mes_input = st.selectbox("Mes de Solicitud", ["2026-10", "2026-11", "2026-12", "2027-01"])
+    mes_input = st.selectbox("Mes de Solicitud", ["2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03"])
     
-    if anestesiologo_seleccionado:
-        # Cargar selecciones previas si las hay
+    # Validar acceso por credenciales
+    acceso_concedido = False
+    if anestesiologo_seleccionado and clave_input:
+        if ANESTESIOLOGOS_DB.get(anestesiologo_seleccionado) == clave_input:
+            acceso_concedido = True
+            st.success(f"¡Bienvenido(a), {anestesiologo_seleccionado}! Acceso autorizado.")
+        else:
+            st.error("❌ Clave de acceso incorrecta para este especialista.")
+            
+    if acceso_concedido:
+        st.divider()
+        st.subheader(f"📅 Calendario Interactivo para {mes_input}")
+        
+        # Procesar año y mes
+        anio_sel, mes_sel = map(int, mes_input.split("-"))
+        festivos_col = obtener_festivos_colombia(anio_sel)
+        
+        # Cargar selecciones previas del usuario
         dias_previos = obtener_dias_usuario(anestesiologo_seleccionado, mes_input)
         
-        st.subheader(f"Calendario de Días Libres para: {anestesiologo_seleccionado}")
+        # Construir matriz del calendario del mes (Semanas empezando en Lunes)
+        cal = calendar.Calendar(firstweekday=0)
+        dias_del_mes = cal.monthdayscalendar(anio_sel, mes_sel)
         
-        # Selector múltiple interactivo simulando los días del mes (1 al 31)
-        dias_disponibles = list(range(1, 32))
-        dias_seleccionados = st.multiselect(
-            "Marque los días que desea solicitar libres:",
-            options=dias_disponibles,
-            default=dias_previos,
-            format_func=lambda x: f"Día {x}"
+        st.markdown("Selecciona en la siguiente tabla los días que deseas solicitar como **libres**. Los días festivos oficiales en Colombia aparecen marcados con etiqueta especial:")
+        
+        # Estructurar tabla visual estilo calendario
+        nombres_columnas = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        
+        # Creamos opciones interactivas por cada día válido del mes
+        dias_validos_mes = [dia for semana in dias_del_mes for dia in semana if dia != 0]
+        
+        # Mapeo de descripción para cada día (ej: "Día 15 (Lunes - Festivo)")
+        opciones_map = {}
+        for d in dias_validos_mes:
+            f_actual = date(anio_sel, mes_sel, d)
+            es_festivo = f_actual in festivos_col
+            es_fin_de_semana = f_actual.weekday() >= 5
+            
+            etiqueta = f"Día {d} ({nombres_columnas[f_actual.weekday()]})"
+            if es_festivo:
+                etiqueta += " 🌟 [FESTIVO COLOMBIA]"
+            elif es_fin_de_semana:
+                etiqueta += " 🏖️ [Fin de Semana]"
+            else:
+                etiqueta += " 💼 [Hábil]"
+            opciones_map[etiqueta] = d
+            
+        # Valores por defecto seleccionados previamente
+        default_labels = [k for k, v in opciones_map.items() if v in dias_previos]
+        
+        seleccion_labels = st.multiselect(
+            "Marque los días que solicita libres:",
+            options=list(opciones_map.keys()),
+            default=default_labels
         )
         
+        dias_finales_seleccionados = [opciones_map[label] for label in seleccion_labels]
+        
         if st.button("Guardar / Actualizar mis Días Libres", type="primary"):
-            exito, mensaje = guardar_solicitudes(anestesiologo_seleccionado, mes_input, dias_seleccionados, clave_input)
+            exito, mensaje = guardar_solicitudes(anestesiologo_seleccionado, mes_input, dias_finales_seleccionados)
             if exito:
                 st.success(mensaje)
             else:
                 st.error(mensaje)
-    else:
-        st.warning("Por favor, seleccione su nombre para desplegar el calendario de días libres.")
 
 # --- PESTAÑA 2: ADMINISTRADOR ---
 with tab2:
     st.header("Panel de Control del Administrador")
-    st.markdown("Área exclusiva para control de plazos y visualización de la tabla estructurada para el motor de turnos.")
+    st.markdown("Área exclusiva para control de plazos y visualización de la tabla consolidada para el motor de turnos.")
     
-    password_input = st.text_input("Contraseña de Administrador", type="password")
+    password_admin = st.text_input("Contraseña de Administrador", type="password")
     
-    if password_input == "admin123":
-        st.success("Acceso concedido.")
+    if password_admin == "admin123":
+        st.success("Acceso de Administrador concedido.")
         
         config_actual = cargar_config()
         
         st.subheader("Configuración de Cierre")
         with st.form("form_config"):
             nueva_fecha_limite = st.text_input("Fecha y Hora Límite (Formato: YYYY-MM-DD HH:MM)", value=config_actual["fecha_limite"])
-            nuevo_cierre_manual = st.checkbox("Cierre Manual Inmediato (Bloquea solicitudes de inmediato)", value=config_actual["cierre_manual"])
+            nuevo_cierre_manual = st.checkbox("Cierre Manual Inmediato (Bloquea solicitudes)", value=config_actual["cierre_manual"])
             
             btn_guardar_config = st.form_submit_button("Actualizar Reglas")
             if btn_guardar_config:
                 guardar_config(nueva_fecha_limite, nuevo_cierre_manual)
-                st.success("¡Configuración de cierre actualizada correctamente!")
+                st.success("¡Configuración actualizada correctamente!")
         
         st.divider()
         st.subheader("Consolidado Global de Solicitudes (Estructura para IA)")
@@ -199,5 +289,5 @@ with tab2:
         else:
             st.warning("Aún no hay registros de solicitudes guardados.")
             
-    elif password_input != "":
-        st.error("Contraseña incorrecta.")
+    elif password_admin != "":
+        st.error("Contraseña de administrador incorrecta.")
