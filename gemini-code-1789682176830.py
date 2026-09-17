@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Inyectar estilos CSS institucionales utilizando tonalidades de #209699 y transparencias
+# Inyectar estilos CSS institucionales y optimizaciones específicas para dispositivos móviles
 st.markdown("""
     <style>
         :root {
@@ -36,16 +36,17 @@ st.markdown("""
             background-color: #197a7d !important;
         }
 
+        /* Estilo general para las casillas de selección */
         input[type="checkbox"] {
-            transform: scale(1.8);
-            margin-right: 12px;
+            transform: scale(1.6);
+            margin-right: 8px;
             cursor: pointer;
             accent-color: #209699;
         }
         div.stCheckbox > label {
-            font-size: 16px !important;
+            font-size: 15px !important;
             font-weight: 500;
-            padding: 6px;
+            padding: 4px;
         }
 
         .stAlert {
@@ -57,6 +58,35 @@ st.markdown("""
             font-size: 16px;
             font-weight: 600;
             color: #209699;
+        }
+
+        /* --- OPTIMIZACIÓN RESPONSIVA PARA CELULARES --- */
+        @media (max-width: 768px) {
+            /* Reducir márgenes y padding en contenedores móviles */
+            .block-container {
+                padding-left: 0.8rem !important;
+                padding-right: 0.8rem !important;
+                padding-top: 1rem !important;
+            }
+            /* Hacer que las columnas del calendario se compacten mejor */
+            div[data-testid="column"] {
+                width: 100% !important;
+                flex: 1 1 13% !important;
+                min-width: 0px !important;
+            }
+            /* Ajustar tamaño de fuente de los días de la semana en la cabecera */
+            div[data-testid="column"] p {
+                font-size: 11px !important;
+                padding: 0px !important;
+            }
+            /* Texto de los checkboxes más compacto en móviles */
+            div.stCheckbox > label {
+                font-size: 12px !important;
+                padding: 2px !important;
+            }
+            input[type="checkbox"] {
+                transform: scale(1.3);
+            }
         }
     </style>
 """, unsafe_allow_html=True)
@@ -208,14 +238,14 @@ def guardar_solicitudes(anestesiologo, mes, dias_seleccionados):
 
 # --- INTERFAZ DE USUARIO ---
 st.title("🏥 Sistema de Gestión de Días Libres - Anestesiología")
-st.markdown("Selección confidencial de días libres con vista de calendario matricial (Domingo a Sábado).")
+st.markdown("Selección confidencial de días libres con vista de calendario matricial adaptable a celulares.")
 
 tab1, tab2 = st.tabs(["👤 Portal Anestesiólogos", "🔒 Portal Administrador"])
 
 # --- PESTAÑA 1: ANESTESIÓLOGOS ---
 with tab1:
     st.header("Calendario de Solicitud de Días Libres")
-    st.info("Selecciona tu nombre e introduce tu clave de 1 dígito para visualizar el calendario mensual en formato de cuadrícula.")
+    st.info("Selecciona tu nombre e introduce tu clave de 1 dígito para visualizar el calendario mensual.")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -248,7 +278,6 @@ with tab1:
         festivos_col = obtener_festivos_colombia(anio_sel)
         dias_previos = obtener_dias_usuario(anestesiologo_seleccionado, mes_input)
         
-        # Diccionario de meses en español
         meses_espanol = {
             1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL", 
             5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO", 
@@ -262,22 +291,20 @@ with tab1:
         cal = calendar.Calendar(firstweekday=6)
         semanas_mes = cal.monthdayscalendar(anio_sel, mes_sel)
         
-        # Cabecera en español (DOM, LUE, MAR, MIÉ, JUE, VIE, SÁB)
+        # Cabecera en español
         dias_semana_nombres = ["DOM", "LUE", "MAR", "MIÉ", "JUE", "VIE", "SÁB"]
         cols_header = st.columns(7)
         for idx, nombre_d in enumerate(dias_semana_nombres):
             with cols_header[idx]:
-                if idx == 0:  # Domingo en tono institucional destacado
+                if idx == 0:
                     st.markdown(f"<p style='text-align: center; color: #209699; font-weight: bold;'>{nombre_d}</p>", unsafe_allow_html=True)
                 else:
                     st.markdown(f"<p style='text-align: center; color: #333333; font-weight: bold;'>{nombre_d}</p>", unsafe_allow_html=True)
                     
-        # Inicializar o recuperar estado de selección en session_state para la cuadrícula
         state_key = f"sel_{anestesiologo_seleccionado}_{mes_input}"
         if state_key not in st.session_state:
             st.session_state[state_key] = {d: (d in dias_previos) for s in semanas_mes for d in s if d != 0}
 
-        # Renderizar cada semana como una fila de 7 columnas
         nuevos_seleccionados = []
         for semana in semanas_mes:
             cols_semana = st.columns(7)
@@ -290,12 +317,13 @@ with tab1:
                         es_domingo_o_sabado = (idx == 0 or idx == 6)
                         es_festivo = f_actual in festivos_col
                         
+                        # Etiquetas compactas y claras para adaptación móvil
                         if es_festivo:
-                            etiqueta_dia = f"{num_dia} ☀️ Festivo"
+                            etiqueta_dia = f"{num_dia} ☀️"
                         elif es_domingo_o_sabado:
-                            etiqueta_dia = f"{num_dia} 🏖️ Fin de semana"
+                            etiqueta_dia = f"{num_dia} 🏖️"
                         else:
-                            etiqueta_dia = f"{num_dia} 💼 Hábil"
+                            etiqueta_dia = f"{num_dia} 💼"
                             
                         estado_actual = st.session_state[state_key].get(num_dia, num_dia in dias_previos)
                         
@@ -359,18 +387,13 @@ with tab2:
             
             st.divider()
             st.subheader("🗑️ Mantenimiento: Borrar Historial por Mes")
-            st.markdown("Selecciona un mes para eliminar por completo todas las solicitudes asociadas a ese periodo (útil para reiniciar un ciclo de turnos).")
-            
             meses_disponibles_db = df_total["Mes"].unique().tolist() if not df_total.empty else []
             if meses_disponibles_db:
                 mes_a_borrar = st.selectbox("Seleccione el Mes a Limpiar", options=meses_disponibles_db)
-                
-                # Checkbox de confirmación para evitar accidentes
                 confirmar_borrado = st.checkbox(f"Confirmo que deseo borrar TODO el historial de solicitudes para el mes de {mes_a_borrar}")
                 
                 if st.button("🗑️ Borrar Solicitudes de este Mes", type="primary"):
                     if confirmar_borrado:
-                        # Filtrar el DataFrame excluyendo el mes seleccionado
                         df_filtrado = df_total[df_total["Mes"] != mes_a_borrar]
                         df_filtrado.to_csv(DB_SOLICITUDES, index=False)
                         st.success(f"¡Se han eliminado todas las solicitudes registradas para el mes {mes_a_borrar}!")
