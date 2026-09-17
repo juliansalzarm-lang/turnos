@@ -79,7 +79,6 @@ def obtener_dias_usuario(anestesiologo, mes):
     return [int(d) for d in filtrado["Dia_Libre"].tolist() if str(d).isdigit()]
 
 def obtener_pascua(anio):
-    # Algoritmo de Meeus/Jones/Butcher para calcular el Domingo de Pascua
     a = anio % 19
     b = anio // 100
     c = anio % 100
@@ -98,12 +97,11 @@ def obtener_pascua(anio):
 
 def siguiente_lunes(fec):
     d_sem = fec.weekday()
-    if d_sem == 0: # Ya es lunes
+    if d_sem == 0:
         return fec
     return fec + timedelta(days=(7 - d_sem))
 
 def obtener_festivos_colombia(anio):
-    # Fijas
     festivos = {
         date(anio, 1, 1),   # Año Nuevo
         date(anio, 5, 1),   # Día del Trabajo
@@ -112,8 +110,6 @@ def obtener_festivos_colombia(anio):
         date(anio, 12, 8),  # Inmaculada Concepción
         date(anio, 12, 25)  # Navidad
     }
-    
-    # Ley Emiliani (Se mueven al lunes siguiente)
     moviles = [
         date(anio, 1, 6),   # Reyes Magos
         date(anio, 3, 19),  # San José
@@ -126,7 +122,6 @@ def obtener_festivos_colombia(anio):
     for m in moviles:
         festivos.add(siguiente_lunes(m))
         
-    # Basados en Pascua
     pascua = obtener_pascua(anio)
     festivos.add(pascua + timedelta(days=-3)) # Jueves Santo
     festivos.add(pascua + timedelta(days=-2)) # Viernes Santo
@@ -164,14 +159,14 @@ def guardar_solicitudes(anestesiologo, mes, dias_seleccionados):
 
 # --- INTERFAZ DE USUARIO ---
 st.title("🏥 Sistema de Gestión de Días Libres - Anestesiología")
-st.markdown("Plataforma de selección confidencial de días libres con validación de seguridad individual.")
+st.markdown("Plataforma de selección confidencial de días libres con calendario matricial interactivo.")
 
 tab1, tab2 = st.tabs(["👤 Portal Anestesiólogos", "🔒 Portal Administrador"])
 
 # --- PESTAÑA 1: ANESTESIÓLOGOS ---
 with tab1:
-    st.header("Acceso y Selección de Días Libres")
-    st.info("Para proteger tu privacidad, el calendario y tus solicitudes anteriores solo se desbloquearán al introducir correctamente tu nombre y tu clave personal de un dígito.")
+    st.header("Selección de Días Libres en Calendario")
+    st.info("Selecciona tu nombre e introduce tu clave de 1 dígito para acceder al calendario mensual y marcar tus días libres.")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -195,60 +190,120 @@ with tab1:
             
     if acceso_concedido:
         st.divider()
-        st.subheader(f"📅 Calendario Interactivo para {mes_input}")
+        st.subheader(f"📅 Matriz de Calendario para {mes_input}")
         
-        # Procesar año y mes
+        # Verificar estado de cierre antes de permitir la edición
+        cerrado, mensaje_cierre = verificar_estado_cierre()
+        if cerrado:
+            st.warning(f"🔒 {mensaje_cierre} Ya no es posible modificar los días seleccionados.")
+        
         anio_sel, mes_sel = map(int, mes_input.split("-"))
         festivos_col = obtener_festivos_colombia(anio_sel)
-        
-        # Cargar selecciones previas del usuario
         dias_previos = obtener_dias_usuario(anestesiologo_seleccionado, mes_input)
         
-        # Construir matriz del calendario del mes (Semanas empezando en Lunes)
+        # Construir el calendario en formato de tabla (Semanas: Lunes a Domingo)
         cal = calendar.Calendar(firstweekday=0)
-        dias_del_mes = cal.monthdayscalendar(anio_sel, mes_sel)
+        semanas_mes = cal.monthdayscalendar(anio_sel, mes_sel)
         
-        st.markdown("Selecciona en la siguiente tabla los días que deseas solicitar como **libres**. Los días festivos oficiales en Colombia aparecen marcados con etiqueta especial:")
+        filas_tabla = []
+        for semana in semanas_mes:
+            fila = {}
+            for i, dia in enumerate(["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]):
+                num_dia = semana[i]
+                if num_dia == 0:
+                    fila[dia] = None  # Espacio vacío del mes anterior/siguiente
+                else:
+                    f_actual = date(anio_sel, mes_sel, num_dia)
+                    es_festivo = f_actual in festivos_col
+                    es_fin = f_actual.weekday() >= 5
+                    
+                    # Etiqueta descriptiva dentro de la celda de la tabla
+                    texto_celda = f"Día {num_dia}"
+                    if es_festivo:
+                        texto_celda += " 🌟 [Festivo]"
+                    elif es_fin:
+                        texto_celda += " 🏖️ [Fin de semana]"
+                        
+                    # Guardamos si está seleccionado previamente
+                    fila[dia] = True if num_dia in dias_previos else False
+            filas_tabla.append(fila)
+            
+        # Mapeo estructurado para reconstruir la tabla visual
+        # Como Streamlit data_editor requiere tipos uniformes, usamos un enfoque por filas donde cada semana muestra los días
+        # Optimizaremos creando una tabla donde cada fila es una semana con columnas booleanas de selección
         
-        # Estructurar tabla visual estilo calendario
-        nombres_columnas = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        st.markdown("💡 **Instrucciones:** Marca la casilla **'Seleccionar'** en los días del mes que deseas libres. Los días festivos y fines de semana están señalados para tu comodidad.")
         
-        # Creamos opciones interactivas por cada día válido del mes
-        dias_validos_mes = [dia for semana in dias_del_mes for dia in semana if dia != 0]
+        # Generar DataFrame amigable para la matriz de calendario
+        matriz_datos = []
+        for s_idx, semana in enumerate(semanas_mes):
+            fila_info = {"Semana": f"Semana {s_idx + 1}"}
+            for d_idx, nombre_col in enumerate(["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]):
+                num_dia = semana[d_idx]
+                if num_dia == 0:
+                    fila_info[f"{nombre_col}"] = None
+                else:
+                    f_actual = date(anio_sel, mes_sel, num_dia)
+                    tag = f"Día {num_dia}"
+                    if f_actual in festivos_col:
+                        tag += " (🌟 Festivo)"
+                    elif f_actual.weekday() >= 5:
+                        tag += " (🏖️ Fin de semana)"
+                    else:
+                        tag += " (💼 Hábil)"
+                    
+                    # Guardamos un diccionario o tupla con el estado de selección
+                    # Para simplificar el data_editor, creamos columnas individuales por día del mes
+                    pass
+
+        # Construcción directa de tabla interactiva de selección de días del 1 al último día del mes
+        ultimo_dia = calendar.monthrange(anio_sel, mes_sel)[1]
         
-        # Mapeo de descripción para cada día (ej: "Día 15 (Lunes - Festivo)")
-        opciones_map = {}
-        for d in dias_validos_mes:
+        datos_editor = []
+        for d in range(1, ultimo_dia + 1):
             f_actual = date(anio_sel, mes_sel, d)
-            es_festivo = f_actual in festivos_col
-            es_fin_de_semana = f_actual.weekday() >= 5
+            nombre_dia = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"][f_actual.weekday()]
             
-            etiqueta = f"Día {d} ({nombres_columnas[f_actual.weekday()]})"
-            if es_festivo:
-                etiqueta += " 🌟 [FESTIVO COLOMBIA]"
-            elif es_fin_de_semana:
-                etiqueta += " 🏖️ [Fin de Semana]"
-            else:
-                etiqueta += " 💼 [Hábil]"
-            opciones_map[etiqueta] = d
+            tipo_dia = "Día Hábil 💼"
+            if f_actual in festivos_col:
+                tipo_dia = "🌟 FESTIVO OFICIAL COLOMBIA"
+            elif f_actual.weekday() >= 5:
+                tipo_dia = "🏖️ Fin de Semana"
+                
+            datos_editor.append({
+                "Día": d,
+                "Semana / Día": nombre_dia,
+                "Tipo": tipo_dia,
+                "Solicitar Libre": True if d in dias_previos else False
+            })
             
-        # Valores por defecto seleccionados previamente
-        default_labels = [k for k, v in opciones_map.items() if v in dias_previos]
+        df_calendario = pd.DataFrame(datos_editor)
         
-        seleccion_labels = st.multiselect(
-            "Marque los días que solicita libres:",
-            options=list(opciones_map.keys()),
-            default=default_labels
+        # Editor interactivo en tabla
+        df_editado = st.data_editor(
+            df_calendario,
+            column_config={
+                "Día": st.column_config.NumberColumn("Día del Mes", disabled=True),
+                "Semana / Día": st.column_config.TextColumn("Día de la Semana", disabled=True),
+                "Tipo": st.column_config.TextColumn("Clasificación", disabled=True),
+                "Solicitar Libre": st.column_config.CheckboxColumn("✨ Marcar como Libre", default=False)
+            },
+            disabled=False if not cerrado else True,
+            hide_index=True,
+            use_container_width=True
         )
         
-        dias_finales_seleccionados = [opciones_map[label] for label in seleccion_labels]
-        
-        if st.button("Guardar / Actualizar mis Días Libres", type="primary"):
-            exito, mensaje = guardar_solicitudes(anestesiologo_seleccionado, mes_input, dias_finales_seleccionados)
-            if exito:
-                st.success(mensaje)
-            else:
-                st.error(mensaje)
+        if not cerrado:
+            if st.button("Guardar / Actualizar mis Días Libres", type="primary"):
+                # Extraer los días donde la casilla 'Solicitar Libre' quedó marcada como True
+                dias_seleccionados_finales = df_editado[df_editado["Solicitar Libre"] == True]["Día"].tolist()
+                
+                exito, mensaje = guardar_solicitudes(anestesiologo_seleccionado, mes_input, dias_seleccionados_finales)
+                if exito:
+                    st.success(mensaje)
+                    st.balloons()
+                else:
+                    st.error(mensaje)
 
 # --- PESTAÑA 2: ADMINISTRADOR ---
 with tab2:
