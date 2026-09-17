@@ -12,16 +12,14 @@ st.set_page_config(
     layout="wide"
 )
 
-# Inyectar estilos CSS personalizados para hacer las casillas (checkboxes) más grandes y táctiles
+# Inyectar estilos CSS personalizados para hacer las casillas más grandes y táctiles
 st.markdown("""
     <style>
-        /* Aumentar tamaño de los checkboxes y facilitar la selección en pantallas táctiles */
         input[type="checkbox"] {
             transform: scale(1.5);
             margin-right: 10px;
             cursor: pointer;
         }
-        /* Ajustar el espaciado de los elementos del widget de selección */
         div.stCheckbox > label {
             font-size: 15px !important;
             font-weight: 500;
@@ -259,13 +257,13 @@ with tab1:
                         es_domingo_o_sabado = (idx == 0 or idx == 6)
                         es_festivo = f_actual in festivos_col
                         
-                        # Construir etiqueta según clasificación exacta solicitada
+                        # Sin la palabra 'Día', mostrando solo número y clasificación
                         if es_festivo:
-                            etiqueta_dia = f"Día {num_dia} ☀️ [Festivo]"
+                            etiqueta_dia = f"{num_dia} ☀️ [Festivo]"
                         elif es_domingo_o_sabado:
-                            etiqueta_dia = f"Día {num_dia} 🏖️ [Fin de semana]"
+                            etiqueta_dia = f"{num_dia} 🏖️ [Fin de semana]"
                         else:
-                            etiqueta_dia = f"Día {num_dia} 💼 [Hábil]"
+                            etiqueta_dia = f"{num_dia} 💼 [Hábil]"
                             
                         estado_actual = st.session_state[state_key].get(num_dia, num_dia in dias_previos)
                         
