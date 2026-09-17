@@ -15,19 +15,16 @@ st.set_page_config(
 # Inyectar estilos CSS institucionales utilizando tonalidades de #209699 y transparencias
 st.markdown("""
     <style>
-        /* Tonalidades de #209699 para elementos clave */
         :root {
             --primary-color: #209699;
             --primary-light: rgba(32, 150, 153, 0.12);
             --primary-hover: #197a7d;
         }
 
-        /* Títulos principales */
         h1, h2, h3 {
             color: #209699 !important;
         }
 
-        /* Botones primarios */
         .stButton > button[kind="primary"], div.stButton > button {
             background-color: #209699 !important;
             color: white !important;
@@ -39,7 +36,6 @@ st.markdown("""
             background-color: #197a7d !important;
         }
 
-        /* Checkboxes más grandes y táctiles */
         input[type="checkbox"] {
             transform: scale(1.8);
             margin-right: 12px;
@@ -52,13 +48,11 @@ st.markdown("""
             padding: 6px;
         }
 
-        /* Cajas de información y alertas con transparencia institucional */
         .stAlert {
             background-color: rgba(32, 150, 153, 0.08) !important;
             border-left: 5px solid #209699 !important;
         }
 
-        /* Pestañas (Tabs) */
         .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
             font-size: 16px;
             font-weight: 600;
@@ -329,7 +323,7 @@ with tab1:
 # --- PESTAÑA 2: ADMINISTRADOR ---
 with tab2:
     st.header("Panel de Control del Administrador")
-    st.markdown("Área exclusiva para control de plazos y visualización de la tabla consolidada para el motor de turnos.")
+    st.markdown("Área exclusiva para control de plazos, visualización del consolidado y mantenimiento de registros.")
     
     password_admin = st.text_input("Contraseña de Administrador", type="password")
     
@@ -338,7 +332,7 @@ with tab2:
         
         config_actual = cargar_config()
         
-        st.subheader("Configuración de Cierre")
+        st.subheader("⚙️ Configuración de Cierre")
         with st.form("form_config"):
             nueva_fecha_limite = st.text_input("Fecha y Hora Límite (Formato: YYYY-MM-DD HH:MM)", value=config_actual["fecha_limite"])
             nuevo_cierre_manual = st.checkbox("Cierre Manual Inmediato (Bloquea solicitudes)", value=config_actual["cierre_manual"])
@@ -349,7 +343,7 @@ with tab2:
                 st.success("¡Configuración actualizada correctamente!")
         
         st.divider()
-        st.subheader("Consolidado Global de Solicitudes (Estructura para IA)")
+        st.subheader("📊 Consolidado Global de Solicitudes (Estructura para IA)")
         
         if os.path.exists(DB_SOLICITUDES):
             df_total = pd.read_csv(DB_SOLICITUDES)
@@ -357,11 +351,34 @@ with tab2:
             
             csv_data = df_total.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="Descargar CSV Consolidado para la IA de Turnos",
+                label="📥 Descargar CSV Consolidado para la IA de Turnos",
                 data=csv_data,
                 file_name="consolidado_dias_libres_anestesiologia.csv",
                 mime="text/csv",
             )
+            
+            st.divider()
+            st.subheader("🗑️ Mantenimiento: Borrar Historial por Mes")
+            st.markdown("Selecciona un mes para eliminar por completo todas las solicitudes asociadas a ese periodo (útil para reiniciar un ciclo de turnos).")
+            
+            meses_disponibles_db = df_total["Mes"].unique().tolist() if not df_total.empty else []
+            if meses_disponibles_db:
+                mes_a_borrar = st.selectbox("Seleccione el Mes a Limpiar", options=meses_disponibles_db)
+                
+                # Checkbox de confirmación para evitar accidentes
+                confirmar_borrado = st.checkbox(f"Confirmo que deseo borrar TODO el historial de solicitudes para el mes de {mes_a_borrar}")
+                
+                if st.button("🗑️ Borrar Solicitudes de este Mes", type="primary"):
+                    if confirmar_borrado:
+                        # Filtrar el DataFrame excluyendo el mes seleccionado
+                        df_filtrado = df_total[df_total["Mes"] != mes_a_borrar]
+                        df_filtrado.to_csv(DB_SOLICITUDES, index=False)
+                        st.success(f"¡Se han eliminado todas las solicitudes registradas para el mes {mes_a_borrar}!")
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ Debes marcar la casilla de confirmación para ejecutar el borrado.")
+            else:
+                st.info("No hay meses con registros en el historial actualmente.")
         else:
             st.warning("Aún no hay registros de solicitudes guardados.")
             
