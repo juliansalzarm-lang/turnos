@@ -199,17 +199,22 @@ with tab1:
         festivos_col = obtener_festivos_colombia(anio_sel)
         dias_previos = obtener_dias_usuario(anestesiologo_seleccionado, mes_input)
         
-        # Nombre del mes en bonito
-        nombre_mes_str = calendar.month_name[mes_sel].upper()
+        # Diccionario de meses en español
+        meses_espanol = {
+            1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL", 
+            5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO", 
+            9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
+        }
+        nombre_mes_str = meses_espanol.get(mes_sel, "")
         st.markdown(f"### 📅 {nombre_mes_str} {anio_sel}")
-        st.markdown("*(Los domingos y festivos oficiales en Colombia aparecen resaltados).*")
+        st.markdown("*(💼 Hábil | ☀️ Festivo | 🏖️ Fin de semana)*")
         
         # Configurar calendario empezando en Domingo (firstweekday=6)
         cal = calendar.Calendar(firstweekday=6)
         semanas_mes = cal.monthdayscalendar(anio_sel, mes_sel)
         
-        # Cabecera estilo calendario (SUN, MON, TUE, WED, THU, FRI, SAT)
-        dias_semana_nombres = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
+        # Cabecera en español (DOM, LUE, MAR, MIÉ, JUE, VIE, SÁB)
+        dias_semana_nombres = ["DOM", "LUE", "MAR", "MIÉ", "JUE", "VIE", "SÁB"]
         cols_header = st.columns(7)
         for idx, nombre_d in enumerate(dias_semana_nombres):
             with cols_header[idx]:
@@ -221,7 +226,6 @@ with tab1:
         # Inicializar o recuperar estado de selección en session_state para la cuadrícula
         state_key = f"sel_{anestesiologo_seleccionado}_{mes_input}"
         if state_key not in st.session_state:
-            # Creamos un diccionario con los días seleccionados inicialmente
             st.session_state[state_key] = {d: (d in dias_previos) for s in semanas_mes for d in s if d != 0}
 
         # Renderizar cada semana como una fila de 7 columnas
@@ -234,17 +238,17 @@ with tab1:
                         st.markdown("<p style='text-align: center; color: #d3d3d3;'>--</p>", unsafe_allow_html=True)
                     else:
                         f_actual = date(anio_sel, mes_sel, num_dia)
-                        es_domingo = (idx == 0)
+                        es_domingo_o_sabado = (idx == 0 or idx == 6)
                         es_festivo = f_actual in festivos_col
                         
-                        # Color distintivo para domingos y festivos
-                        color_estilo = "color: #ff4b4b; font-weight: bold;" if (es_domingo or es_festivo) else ""
-                        
-                        etiqueta_dia = f"Día {num_dia}"
+                        # Construir etiqueta según clasificación exacta solicitada
                         if es_festivo:
-                            etiqueta_dia += " 🌟"
+                            etiqueta_dia = f"Día {num_dia} ☀️ [Festivo]"
+                        elif es_domingo_o_sabado:
+                            etiqueta_dia = f"Día {num_dia} 🏖️ [Fin de semana]"
+                        else:
+                            etiqueta_dia = f"Día {num_dia} 💼 [Hábil]"
                             
-                        # Casilla de verificación para cada día del mes en la cuadrícula
                         estado_actual = st.session_state[state_key].get(num_dia, num_dia in dias_previos)
                         
                         seleccionado = st.checkbox(
