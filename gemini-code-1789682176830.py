@@ -15,6 +15,29 @@ st.set_page_config(
 DB_SOLICITUDES = "solicitudes_dias_libres.csv"
 DB_CONFIG = "config_admin.json"
 
+# Listado oficial de anestesiólogos y asignación de clave secreta de 1 dígito
+ANESTESIOLOGOS_DB = {
+    "ALADINO PATIÑO VALERIA": "1",
+    "BEDOYA MOSQUERA JADDY (I)": "2",
+    "BENITO REVOLLO ZAPATA JAVIER": "3",
+    "GONZALEZ HERNANDEZ JENIFFER": "4",
+    "LÓPEZ VIDALES FRANCISCO ANTONIO (I)": "5",
+    "LUNA MARTINEZ DARWIN": "6",
+    "OCHOA GARCÍA ORLANDO (I)": "7",
+    "PINILLA PARDO ALVARO (I)": "8",
+    "POLO PANTOJA PAOLA (I)": "9",
+    "PUERTO TCHEMODANOVA NATALIA (I)": "1",
+    "RODRÍGUEZ BLANCO JONATHAN": "2",
+    "ROJAS MORALES CARLOS": "3",
+    "SALAZAR MORALES JULIÁN ANDRÉS (I)": "4",
+    "SARMIENTO VILLARREAL GUALBERTO (I)": "5",
+    "UCROS CARRILLO JOSEPH": "6",
+    "VEGA SALÁZAR FERNANDO": "7",
+    "VILLALBA GAVIRIA MARÍA CLAUDIA (I)": "8",
+    "VILLAREAL MAFIOL LAURA (I)": "9",
+    "VILORIA MADRID JOHAN": "1"
+}
+
 # Inicializar archivos si no existen
 if not os.path.exists(DB_SOLICITUDES):
     df_init = pd.DataFrame(columns=["Anestesiologo", "Mes", "Dia_Libre", "Timestamp"])
@@ -50,15 +73,19 @@ def verificar_estado_cierre():
     return False, "Plazo abierto."
 
 def obtener_dias_usuario(anestesiologo, mes):
-    if not anestesiologo.strip():
+    if not anestesiologo:
         return []
     df = pd.read_csv(DB_SOLICITUDES)
     filtrado = df[(df["Anestesiologo"] == anestesiologo) & (df["Mes"] == mes)]
     return [int(d) for d in filtrado["Dia_Libre"].tolist() if str(d).isdigit()]
 
-def guardar_solicitudes(anestesiologo, mes, dias_seleccionados):
-    if not anestesiologo.strip():
-        return False, "Por favor, ingrese su nombre y apellido."
+def guardar_solicitudes(anestesiologo, mes, dias_seleccionados, clave_ingresada):
+    if not anestesiologo:
+        return False, "Por favor, seleccione su nombre de la lista."
+    
+    # Validar clave de 1 dígito
+    if ANESTESIOLOGOS_DB.get(anestesiologo) != clave_ingresada:
+        return False, "Clave de acceso incorrecta para este especialista."
     
     cerrado, mensaje_cierre = verificar_estado_cierre()
     if cerrado:
@@ -66,7 +93,7 @@ def guardar_solicitudes(anestesiologo, mes, dias_seleccionados):
     
     df = pd.read_csv(DB_SOLICITUDES)
     
-    # Eliminar registros previos de este usuario para este mes (permite editar/sobrescribir)
+    # Eliminar registros previos para permitir edición limpia
     df = df[~((df["Anestesiologo"] == anestesiologo) & (df["Mes"] == mes))]
     
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -87,50 +114,59 @@ def guardar_solicitudes(anestesiologo, mes, dias_seleccionados):
     df.to_csv(DB_SOLICITUDES, index=False)
     return True, f"¡Solicitudes actualizadas con éxito para {mes}!"
 
-# --- INTERFAZ DE USUARIO (STREAMLIT) ---
+# --- INTERFAZ DE USUARIO ---
 st.title("🏥 Sistema de Gestión de Días Libres - Anestesiología")
-st.markdown("Plataforma interactiva para la selección confidencial de días libres y la administración del servicio.")
+st.markdown("Selección confidencial de días libres por especialista.")
 
 tab1, tab2 = st.tabs(["👤 Portal Anestesiólogos", "🔒 Portal Administrador"])
 
 # --- PESTAÑA 1: ANESTESIÓLOGOS ---
 with tab1:
-    st.header("Selección de Días Libres")
-    st.info("Seleccione su nombre, el mes de interés y marque los días que desea libres. Si ya había guardado selecciones previas, estas aparecerán marcadas y podrá modificarlas antes de la fecha límite.")
+    st.header("Selección de Días Libres por Especialista")
+    st.info("Seleccione su nombre de la lista desplegable, introduzca su clave asignada de un dígito y marque los días que desea libres en el calendario del mes.")
     
-    col1, col2 = st.columns(2)
+    col1, col2 = st.Item = st.columns(2)
     with col1:
-        nombre_input = st.text_input("Nombre y Apellido del Anestesiólogo", placeholder="Ej. Dr. Juan Pérez")
+        anestesiologo_seleccionado = st.selectbox(
+            "Seleccione su Nombre",
+            options=[""] + list(ANESTESIOLOGOS_DB.keys())
+        )
     with col2:
-        mes_input = st.selectbox("Mes de Solicitud", ["2026-10", "2026-11", "2026-12", "2027-01"])
+        clave_input = st.text_input("Clave personal (1 dígito)", type="password", max_chars=1)
+        
+    mes_input = st.selectbox("Mes de Solicitud", ["2026-10", "2026-11", "2026-12", "2027-01"])
     
-    # Cargar días seleccionados previamente por este usuario para este mes
-    dias_previos = obtener_dias_usuario(nombre_input, mes_input) if nombre_input else []
-    
-    # Selector dinámico de días del 1 al 31
-    dias_disponibles = list(range(1, 32))
-    dias_seleccionados = st.multiselect(
-        "Seleccione los días del mes que desea libres:",
-        options=dias_disponibles,
-        default=dias_previos,
-        format_func=lambda x: f"Día {x}"
-    )
-    
-    if st.button("Guardar / Actualizar mis Días Libres", type="primary"):
-        exito, mensaje = guardar_solicitudes(nombre_input, mes_input, dias_seleccionados)
-        if exito:
-            st.success(mensaje)
-        else:
-            st.error(mensaje)
+    if anestesiologo_seleccionado:
+        # Cargar selecciones previas si las hay
+        dias_previos = obtener_dias_usuario(anestesiologo_seleccionado, mes_input)
+        
+        st.subheader(f"Calendario de Días Libres para: {anestesiologo_seleccionado}")
+        
+        # Selector múltiple interactivo simulando los días del mes (1 al 31)
+        dias_disponibles = list(range(1, 32))
+        dias_seleccionados = st.multiselect(
+            "Marque los días que desea solicitar libres:",
+            options=dias_disponibles,
+            default=dias_previos,
+            format_func=lambda x: f"Día {x}"
+        )
+        
+        if st.button("Guardar / Actualizar mis Días Libres", type="primary"):
+            exito, mensaje = guardar_solicitudes(anestesiologo_seleccionado, mes_input, dias_seleccionados, clave_input)
+            if exito:
+                st.success(mensaje)
+            else:
+                st.error(mensaje)
+    else:
+        st.warning("Por favor, seleccione su nombre para desplegar el calendario de días libres.")
 
 # --- PESTAÑA 2: ADMINISTRADOR ---
 with tab2:
     st.header("Panel de Control del Administrador")
-    st.markdown("Área exclusiva para la gestión de plazos y visualización de la tabla consolidada destinada al motor de turnos.")
+    st.markdown("Área exclusiva para control de plazos y visualización de la tabla estructurada para el motor de turnos.")
     
     password_input = st.text_input("Contraseña de Administrador", type="password")
     
-    # Contraseña por defecto para pruebas: admin123
     if password_input == "admin123":
         st.success("Acceso concedido.")
         
@@ -153,7 +189,6 @@ with tab2:
             df_total = pd.read_csv(DB_SOLICITUDES)
             st.dataframe(df_total, use_container_width=True)
             
-            # Botón de descarga CSV para alimentar el siguiente Gem / IA de turnos
             csv_data = df_total.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="Descargar CSV Consolidado para la IA de Turnos",
