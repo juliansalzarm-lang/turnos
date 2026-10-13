@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Inyectar estilos CSS institucionales y forzar cuadrícula de calendario en móviles
+# Inyectar estilos CSS institucionales y forzar cuadrícula horizontal en celulares
 st.markdown("""
     <style>
         :root {
@@ -37,15 +37,15 @@ st.markdown("""
         }
 
         input[type="checkbox"] {
-            transform: scale(1.5);
-            margin-right: 6px;
+            transform: scale(1.4);
+            margin-right: 4px;
             cursor: pointer;
             accent-color: #209699;
         }
         div.stCheckbox > label {
-            font-size: 13px !important;
+            font-size: 12px !important;
             font-weight: 500;
-            padding: 2px;
+            padding: 1px;
         }
 
         .stAlert {
@@ -59,38 +59,39 @@ st.markdown("""
             color: #209699;
         }
 
-        /* --- FORZAR VISTA DE CUADRÍCULA DE 7 COLUMNAS EN DISPOSITIVOS MÓVILES --- */
+        /* --- FORZAR VISTA DE CUADRÍCULA DE 7 COLUMNAS EN DISPOSITIVOS MÓVILES (VERTICAL Y HORIZONTAL) --- */
         @media (max-width: 768px) {
             .block-container {
-                padding-left: 0.5rem !important;
-                padding-right: 0.5rem !important;
-                padding-top: 0.8rem !important;
+                padding-left: 0.3rem !important;
+                padding-right: 0.3rem !important;
+                padding-top: 0.5rem !important;
             }
-            /* Evitar que Streamlit apile las columnas verticalmente en pantallas pequeñas */
-            div[data-testid="horizontal-block"] {
+            /* Evitar que Streamlit apile las columnas del calendario verticalmente */
+            [data-testid="stHorizontalBlock"] {
+                display: flex !important;
                 flex-direction: row !important;
                 flex-wrap: nowrap !important;
             }
-            div[data-testid="column"] {
+            [data-testid="column"] {
                 flex: 1 1 0% !important;
                 min-width: 0px !important;
                 padding: 1px !important;
             }
-            /* Reducir tamaño de fuente en cabecera y celdas para que entren las 7 columnas */
+            /* Reducir texto para ajustar las 7 columnas en pantallas pequeñas */
             div[data-testid="column"] p {
-                font-size: 9px !important;
+                font-size: 8px !important;
                 padding: 0px !important;
                 white-space: nowrap !important;
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
             div.stCheckbox > label {
-                font-size: 10px !important;
-                padding: 1px !important;
+                font-size: 9px !important;
+                padding: 0px !important;
             }
             input[type="checkbox"] {
-                transform: scale(1.2);
-                margin-right: 2px;
+                transform: scale(1.1);
+                margin-right: 1px;
             }
         }
     </style>
@@ -100,26 +101,26 @@ st.markdown("""
 DB_SOLICITUDES = "solicitudes_dias_libres.csv"
 DB_CONFIG = "config_admin.json"
 
-# Listado oficial de anestesiólogos y su clave secreta de 1 dígito
+# Listado oficial de anestesiólogos con clave personal única de hasta 2 dígitos (Sin Orlando Ochoa)
 ANESTESIOLOGOS_DB = {
-    "ALADINO PATIÑO VALERIA": "1",
-    "BEDOYA MOSQUERA JADDY (I)": "2",
-    "BENITO REVOLLO ZAPATA JAVIER": "3",
-    "GONZALEZ HERNANDEZ JENIFFER": "4",
-    "LÓPEZ VIDALES FRANCISCO ANTONIO (I)": "5",
-    "LUNA MARTINEZ DARWIN": "6",
-    "PINILLA PARDO ALVARO (I)": "8",
-    "POLO PANTOJA PAOLA (I)": "9",
-    "PUERTO TCHEMODANOVA NATALIA (I)": "13",
-    "RODRÍGUEZ BLANCO JONATHAN": "21",
-    "ROJAS MORALES CARLOS": "31",
-    "SALAZAR MORALES JULIÁN ANDRÉS (I)": "41",
-    "SARMIENTO VILLARREAL GUALBERTO (I)": "51",
-    "UCROS CARRILLO JOSEPH": "61",
-    "VEGA SALÁZAR FERNANDO": "71",
-    "VILLALBA GAVIRIA MARÍA CLAUDIA (I)": "81",
-    "VILLAREAL MAFIOL LAURA (I)": "91",
-    "VILORIA MADRID JOHAN": "12"
+    "ALADINO PATIÑO VALERIA": "11",
+    "BEDOYA MOSQUERA JADDY (I)": "12",
+    "BENITO REVOLLO ZAPATA JAVIER": "13",
+    "GONZALEZ HERNANDEZ JENIFFER": "14",
+    "LÓPEZ VIDALES FRANCISCO ANTONIO (I)": "15",
+    "LUNA MARTINEZ DARWIN": "16",
+    "PINILLA PARDO ALVARO (I)": "17",
+    "POLO PANTOJA PAOLA (I)": "18",
+    "PUERTO TCHEMODANOVA NATALIA (I)": "19",
+    "RODRÍGUEZ BLANCO JONATHAN": "20",
+    "ROJAS MORALES CARLOS": "21",
+    "SALAZAR MORALES JULIÁN ANDRÉS (I)": "22",
+    "SARMIENTO VILLARREAL GUALBERTO (I)": "23",
+    "UCROS CARRILLO JOSEPH": "24",
+    "VEGA SALÁZAR FERNANDO": "25",
+    "VILLALBA GAVIRIA MARÍA CLAUDIA (I)": "26",
+    "VILLAREAL MAFIOL LAURA (I)": "27",
+    "VILORIA MADRID JOHAN": "28"
 }
 
 # Inicializar archivos si no existen
@@ -168,246 +169,4 @@ def obtener_pascua(anio):
     d = b // 4
     e = b % 4
     f = (b + 8) // 25
-    g = (b - f + 1) // 3
-    h = (19 * a + b - d - g + 15) % 30
-    i = c // 4
-    k = c % 4
-    l = (32 + 2 * e + 2 * i - h - k) % 7
-    m = (a + 11 * h + 22 * l) // 451
-    mes = (h + l - 7 * m + 114) // 31
-    dia = ((h + l - 7 * m + 114) % 31) + 1
-    return date(anio, mes, dia)
-
-def siguiente_lunes(fec):
-    d_sem = fec.weekday()
-    if d_sem == 0:
-        return fec
-    return fec + timedelta(days=(7 - d_sem))
-
-def obtener_festivos_colombia(anio):
-    festivos = {
-        date(anio, 1, 1),   # Año Nuevo
-        date(anio, 5, 1),   # Día del Trabajo
-        date(anio, 7, 20),  # Independencia
-        date(anio, 8, 7),   # Batalla de Boyacá
-        date(anio, 12, 8),  # Inmaculada Concepción
-        date(anio, 12, 25)  # Navidad
-    }
-    moviles = [
-        date(anio, 1, 6),   # Reyes Magos
-        date(anio, 3, 19),  # San José
-        date(anio, 6, 29),  # San Pedro y San Pablo
-        date(anio, 8, 15),  # Asunción de la Virgen
-        date(anio, 10, 12), # Día de la Raza
-        date(anio, 11, 1),  # Todos los Santos
-        date(anio, 11, 11)  # Independencia de Cartagena
-    ]
-    for m in moviles:
-        festivos.add(siguiente_lunes(m))
-        
-    pascua = obtener_pascua(anio)
-    festivos.add(pascua + timedelta(days=-3)) # Jueves Santo
-    festivos.add(pascua + timedelta(days=-2)) # Viernes Santo
-    festivos.add(siguiente_lunes(pascua + timedelta(days=43))) # Ascensión del Señor
-    festivos.add(siguiente_lunes(pascua + timedelta(days=64))) # Corpus Christi
-    festivos.add(siguiente_lunes(pascua + timedelta(days=71))) # Sagrado Corazón
-    
-    return festivos
-
-def guardar_solicitudes(anestesiologo, mes, dias_seleccionados):
-    cerrado, mensaje_cierre = verificar_estado_cierre()
-    if cerrado:
-        return False, f"Acción denegada: {mensaje_cierre}"
-    
-    df = pd.read_csv(DB_SOLICITUDES)
-    df = df[~((df["Anestesiologo"] == anestesiologo) & (df["Mes"] == mes))]
-    
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    nuevos_registros = []
-    
-    for dia in dias_seleccionados:
-        nuevos_registros.append({
-            "Anestesiologo": anestesiologo,
-            "Mes": mes,
-            "Dia_Libre": dia,
-            "Timestamp": timestamp
-        })
-    
-    if nuevos_registros:
-        df_nuevos = pd.DataFrame(nuevos_registros)
-        df = pd.concat([df, df_nuevos], ignore_index=True)
-        
-    df.to_csv(DB_SOLICITUDES, index=False)
-    return True, f"¡Solicitudes guardadas y actualizadas con éxito para {mes}!"
-
-# --- INTERFAZ DE USUARIO ---
-st.title("🏥 Sistema de Gestión de Días Libres - Anestesiología")
-st.markdown("Selección confidencial de días libres con vista de calendario matricial (Domingo a Sábado).")
-
-tab1, tab2 = st.tabs(["👤 Portal Anestesiólogos", "🔒 Portal Administrador"])
-
-# --- PESTAÑA 1: ANESTESIÓLOGOS ---
-with tab1:
-    st.header("Calendario de Solicitud de Días Libres")
-    st.info("Selecciona tu nombre e introduce tu clave de 1 dígito para visualizar el calendario mensual.")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        anestesiologo_seleccionado = st.selectbox(
-            "Seleccione su Nombre",
-            options=[""] + list(ANESTESIOLOGOS_DB.keys())
-        )
-    with col2:
-        clave_input = st.text_input("Clave personal (1 dígito)", type="password", max_chars=1)
-        
-    mes_input = st.selectbox("Mes de Solicitud", ["2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03"])
-    
-    # Validar acceso por credenciales
-    acceso_concedido = False
-    if anestesiologo_seleccionado and clave_input:
-        if ANESTESIOLOGOS_DB.get(anestesiologo_seleccionado) == clave_input:
-            acceso_concedido = True
-            st.success(f"¡Bienvenido(a), {anestesiologo_seleccionado}! Acceso autorizado.")
-        else:
-            st.error("❌ Clave de acceso incorrecta para este especialista.")
-            
-    if acceso_concedido:
-        st.divider()
-        
-        cerrado, mensaje_cierre = verificar_estado_cierre()
-        if cerrado:
-            st.warning(f"🔒 {mensaje_cierre} El periodo de selección está cerrado.")
-        
-        anio_sel, mes_sel = map(int, mes_input.split("-"))
-        festivos_col = obtener_festivos_colombia(anio_sel)
-        dias_previos = obtener_dias_usuario(anestesiologo_seleccionado, mes_input)
-        
-        meses_espanol = {
-            1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL", 
-            5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO", 
-            9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
-        }
-        nombre_mes_str = meses_espanol.get(mes_sel, "")
-        st.markdown(f"### 📅 {nombre_mes_str} {anio_sel}")
-        st.markdown("*(💼 Hábil | ☀️ Festivo | 🏖️ Fin de semana)*")
-        
-        # Configurar calendario empezando en Domingo (firstweekday=6)
-        cal = calendar.Calendar(firstweekday=6)
-        semanas_mes = cal.monthdayscalendar(anio_sel, mes_sel)
-        
-        # Cabecera en español
-        dias_semana_nombres = ["DOM", "LUE", "MAR", "MIÉ", "JUE", "VIE", "SÁB"]
-        cols_header = st.columns(7)
-        for idx, nombre_d in enumerate(dias_semana_nombres):
-            with cols_header[idx]:
-                if idx == 0:
-                    st.markdown(f"<p style='text-align: center; color: #209699; font-weight: bold;'>{nombre_d}</p>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"<p style='text-align: center; color: #333333; font-weight: bold;'>{nombre_d}</p>", unsafe_allow_html=True)
-                    
-        state_key = f"sel_{anestesiologo_seleccionado}_{mes_input}"
-        if state_key not in st.session_state:
-            st.session_state[state_key] = {d: (d in dias_previos) for s in semanas_mes for d in s if d != 0}
-
-        nuevos_seleccionados = []
-        for semana in semanas_mes:
-            cols_semana = st.columns(7)
-            for idx, num_dia in enumerate(semana):
-                with cols_semana[idx]:
-                    if num_dia == 0:
-                        st.markdown("<p style='text-align: center; color: #d3d3d3;'>--</p>", unsafe_allow_html=True)
-                    else:
-                        f_actual = date(anio_sel, mes_sel, num_dia)
-                        es_domingo_o_sabado = (idx == 0 or idx == 6)
-                        es_festivo = f_actual in festivos_col
-                        
-                        # Etiquetas compactas adaptadas para mantener la cuadrícula limpia en celulares
-                        if es_festivo:
-                            etiqueta_dia = f"{num_dia} ☀️"
-                        elif es_domingo_o_sabado:
-                            etiqueta_dia = f"{num_dia} 🏖️"
-                        else:
-                            etiqueta_dia = f"{num_dia} 💼"
-                            
-                        estado_actual = st.session_state[state_key].get(num_dia, num_dia in dias_previos)
-                        
-                        seleccionado = st.checkbox(
-                            f"{etiqueta_dia}",
-                            value=estado_actual,
-                            key=f"check_{mes_input}_{num_dia}",
-                            disabled=cerrado
-                        )
-                        st.session_state[state_key][num_dia] = seleccionado
-                        
-                        if seleccionado:
-                            nuevos_seleccionados.append(num_dia)
-
-        st.divider()
-        if not cerrado:
-            if st.button("💾 Guardar / Actualizar mis Días Libres", type="primary"):
-                exito, mensaje = guardar_solicitudes(anestesiologo_seleccionado, mes_input, nuevos_seleccionados)
-                if exito:
-                    st.success(mensaje)
-                    st.balloons()
-                else:
-                    st.error(mensaje)
-
-# --- PESTAÑA 2: ADMINISTRADOR ---
-with tab2:
-    st.header("Panel de Control del Administrador")
-    st.markdown("Área exclusiva para control de plazos, visualización del consolidado y mantenimiento de registros.")
-    
-    password_admin = st.text_input("Contraseña de Administrador", type="password")
-    
-    if password_admin == "admin123":
-        st.success("Acceso de Administrador concedido.")
-        
-        config_actual = cargar_config()
-        
-        st.subheader("⚙️ Configuración de Cierre")
-        with st.form("form_config"):
-            nueva_fecha_limite = st.text_input("Fecha y Hora Límite (Formato: YYYY-MM-DD HH:MM)", value=config_actual["fecha_limite"])
-            nuevo_cierre_manual = st.checkbox("Cierre Manual Inmediato (Bloquea solicitudes)", value=config_actual["cierre_manual"])
-            
-            btn_guardar_config = st.form_submit_button("Actualizar Reglas")
-            if btn_guardar_config:
-                guardar_config(nueva_fecha_limite, nuevo_cierre_manual)
-                st.success("¡Configuración actualizada correctamente!")
-        
-        st.divider()
-        st.subheader("📊 Consolidado Global de Solicitudes (Estructura para IA)")
-        
-        if os.path.exists(DB_SOLICITUDES):
-            df_total = pd.read_csv(DB_SOLICITUDES)
-            st.dataframe(df_total, use_container_width=True)
-            
-            csv_data = df_total.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Descargar CSV Consolidado para la IA de Turnos",
-                data=csv_data,
-                file_name="consolidado_dias_libres_anestesiologia.csv",
-                mime="text/csv",
-            )
-            
-            st.divider()
-            st.subheader("🗑️ Mantenimiento: Borrar Historial por Mes")
-            meses_disponibles_db = df_total["Mes"].unique().tolist() if not df_total.empty else []
-            if meses_disponibles_db:
-                mes_a_borrar = st.selectbox("Seleccione el Mes a Limpiar", options=meses_disponibles_db)
-                confirmar_borrado = st.checkbox(f"Confirmo que deseo borrar TODO el historial de solicitudes para el mes de {mes_a_borrar}")
-                
-                if st.button("🗑️ Borrar Solicitudes de este Mes", type="primary"):
-                    if confirmar_borrado:
-                        df_filtrado = df_total[df_total["Mes"] != mes_a_borrar]
-                        df_filtrado.to_csv(DB_SOLICITUDES, index=False)
-                        st.success(f"¡Se han eliminado todas las solicitudes registradas para el mes {mes_a_borrar}!")
-                        st.rerun()
-                    else:
-                        st.warning("⚠️ Debes marcar la casilla de confirmación para ejecutar el borrado.")
-            else:
-                st.info("No hay meses con registros en el historial actualmente.")
-        else:
-            st.warning("Aún no hay registros de solicitudes guardados.")
-            
-    elif password_admin != "":
-        st.error("Contraseña de administrador incorrecta.")
+    g
