@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Inyectar estilos CSS institucionales y optimizaciones específicas para dispositivos móviles
+# Inyectar estilos CSS institucionales y forzar cuadrícula de calendario en móviles
 st.markdown("""
     <style>
         :root {
@@ -36,17 +36,16 @@ st.markdown("""
             background-color: #197a7d !important;
         }
 
-        /* Estilo general para las casillas de selección */
         input[type="checkbox"] {
-            transform: scale(1.6);
-            margin-right: 8px;
+            transform: scale(1.5);
+            margin-right: 6px;
             cursor: pointer;
             accent-color: #209699;
         }
         div.stCheckbox > label {
-            font-size: 15px !important;
+            font-size: 13px !important;
             font-weight: 500;
-            padding: 4px;
+            padding: 2px;
         }
 
         .stAlert {
@@ -60,32 +59,38 @@ st.markdown("""
             color: #209699;
         }
 
-        /* --- OPTIMIZACIÓN RESPONSIVA PARA CELULARES --- */
+        /* --- FORZAR VISTA DE CUADRÍCULA DE 7 COLUMNAS EN DISPOSITIVOS MÓVILES --- */
         @media (max-width: 768px) {
-            /* Reducir márgenes y padding en contenedores móviles */
             .block-container {
-                padding-left: 0.8rem !important;
-                padding-right: 0.8rem !important;
-                padding-top: 1rem !important;
+                padding-left: 0.5rem !important;
+                padding-right: 0.5rem !important;
+                padding-top: 0.8rem !important;
             }
-            /* Hacer que las columnas del calendario se compacten mejor */
+            /* Evitar que Streamlit apile las columnas verticalmente en pantallas pequeñas */
+            div[data-testid="horizontal-block"] {
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+            }
             div[data-testid="column"] {
-                width: 100% !important;
-                flex: 1 1 13% !important;
+                flex: 1 1 0% !important;
                 min-width: 0px !important;
+                padding: 1px !important;
             }
-            /* Ajustar tamaño de fuente de los días de la semana en la cabecera */
+            /* Reducir tamaño de fuente en cabecera y celdas para que entren las 7 columnas */
             div[data-testid="column"] p {
-                font-size: 11px !important;
+                font-size: 9px !important;
                 padding: 0px !important;
+                white-space: nowrap !important;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
-            /* Texto de los checkboxes más compacto en móviles */
             div.stCheckbox > label {
-                font-size: 12px !important;
-                padding: 2px !important;
+                font-size: 10px !important;
+                padding: 1px !important;
             }
             input[type="checkbox"] {
-                transform: scale(1.3);
+                transform: scale(1.2);
+                margin-right: 2px;
             }
         }
     </style>
@@ -103,19 +108,18 @@ ANESTESIOLOGOS_DB = {
     "GONZALEZ HERNANDEZ JENIFFER": "4",
     "LÓPEZ VIDALES FRANCISCO ANTONIO (I)": "5",
     "LUNA MARTINEZ DARWIN": "6",
-    "OCHOA GARCÍA ORLANDO (I)": "7",
     "PINILLA PARDO ALVARO (I)": "8",
     "POLO PANTOJA PAOLA (I)": "9",
-    "PUERTO TCHEMODANOVA NATALIA (I)": "1",
-    "RODRÍGUEZ BLANCO JONATHAN": "2",
-    "ROJAS MORALES CARLOS": "3",
-    "SALAZAR MORALES JULIÁN ANDRÉS (I)": "4",
-    "SARMIENTO VILLARREAL GUALBERTO (I)": "5",
-    "UCROS CARRILLO JOSEPH": "6",
-    "VEGA SALÁZAR FERNANDO": "7",
-    "VILLALBA GAVIRIA MARÍA CLAUDIA (I)": "8",
-    "VILLAREAL MAFIOL LAURA (I)": "9",
-    "VILORIA MADRID JOHAN": "1"
+    "PUERTO TCHEMODANOVA NATALIA (I)": "13",
+    "RODRÍGUEZ BLANCO JONATHAN": "21",
+    "ROJAS MORALES CARLOS": "31",
+    "SALAZAR MORALES JULIÁN ANDRÉS (I)": "41",
+    "SARMIENTO VILLARREAL GUALBERTO (I)": "51",
+    "UCROS CARRILLO JOSEPH": "61",
+    "VEGA SALÁZAR FERNANDO": "71",
+    "VILLALBA GAVIRIA MARÍA CLAUDIA (I)": "81",
+    "VILLAREAL MAFIOL LAURA (I)": "91",
+    "VILORIA MADRID JOHAN": "12"
 }
 
 # Inicializar archivos si no existen
@@ -238,7 +242,7 @@ def guardar_solicitudes(anestesiologo, mes, dias_seleccionados):
 
 # --- INTERFAZ DE USUARIO ---
 st.title("🏥 Sistema de Gestión de Días Libres - Anestesiología")
-st.markdown("Selección confidencial de días libres con vista de calendario matricial adaptable a celulares.")
+st.markdown("Selección confidencial de días libres con vista de calendario matricial (Domingo a Sábado).")
 
 tab1, tab2 = st.tabs(["👤 Portal Anestesiólogos", "🔒 Portal Administrador"])
 
@@ -317,7 +321,7 @@ with tab1:
                         es_domingo_o_sabado = (idx == 0 or idx == 6)
                         es_festivo = f_actual in festivos_col
                         
-                        # Etiquetas compactas y claras para adaptación móvil
+                        # Etiquetas compactas adaptadas para mantener la cuadrícula limpia en celulares
                         if es_festivo:
                             etiqueta_dia = f"{num_dia} ☀️"
                         elif es_domingo_o_sabado:
